@@ -2,9 +2,46 @@
 
 const express = require('express');
 const router = express.Router();
+const auth = require('basic-auth');
+const bcrypt = require('bcrypt');
+const SaltRounds = 10;
 
 const User = require('./models').User;
 const Course = require('./models').Course;
+
+// Authenticate User
+router.use(function(req, res, next){
+        let userNow = auth(req);
+        if (userNow) {
+                User.findOne({ emailAddress: userNow.name}).exec(function(err, user) {
+                        if(user) {
+                                bcrypt.compare(userNow.pass, user.password, function(err, res){
+                                        if(res) {
+                                                console.log('valid password');
+                                                req.user = user;
+                                                next();
+                                        } else {
+                                                const error = new Error("Password not valid");
+                                                error.status = 401;
+                                                console.log(error.message);
+                                                next(error);
+                                        }
+                                });     
+                        }    else {
+                                const error = new Error("User not valid");
+                                error.status = 401;
+                                console.log(error.message);
+                                next(error); 
+                        }                
+                });
+        } else {
+                next();
+                // const error = new Error("Valid sign on required");
+                //                 error.status = 401;
+                //                 console.log(error.message);
+                //                 next(error); 
+        }
+});
 
 
 
@@ -26,7 +63,7 @@ router.param("id", function(req, res, next, id) {
 router.get("/users", (req, res, next) => {
         User.find({}).exec(function(err, users){
                 if(err) return next(err);
-                    res.json(users);
+                res.json(req.user);
             });
 });
 
@@ -37,8 +74,8 @@ router.post("/users",  (req, res, next) => {
         var user = new User(req.body);
         user.save(function(err, user){
                 if(err) return next();
-                res.status(201);
-                res.location('/');     
+                res.location('/');                   
+                res.send(201);  
         });
 });
 
@@ -49,6 +86,7 @@ router.get("/courses", (req, res, next) => {
         console.log('get courses');
         Course.find({}).exec(function(err, courses){
             if(err) return next(err);
+                res.status(200);
                 res.json(courses);
         });
 
@@ -69,8 +107,10 @@ router.get("/courses/:id", (req, res, next) => {
 
 // POST /api/courses 201 - Creates a course, sets the Location header to the URI for the course, and returns no content
 router.post("/courses", (req, res, next) => {
-        var course = new Course(req.body);
-
+        console.log(req.user._id);
+        var course = new Course({...req.body, user: req.user._id});
+     
+        console.log(course);
         course.validate(function (err, req, res) {
                 if (err && err.name === "ValidationError") {
                         err.status = 400;
@@ -80,8 +120,8 @@ router.post("/courses", (req, res, next) => {
         });
         course.save(function(err, course){
                 if(err) return next();
-                res.status(201);
-                res.location('/');         
+                res.location('/'); 
+                res.send(201);       
         });
         
 });
@@ -90,23 +130,26 @@ router.post("/courses", (req, res, next) => {
 
 // PUT /api/courses/:id 204 - Updates a course and returns no content
 router.put("/courses/:id", (req, res, next) => {
-        let course = req.body;
-        // course.validate(function (err, req, res) {
-        //         if (err && err.name === "ValidationError") {
-        //                 err.status = 400;
-        //                 console.log(err);
-        //                 return next(err);
-        //         } 
-        // });
-        req.course.updateOne(req.body, function(err,result){
-                if (err && err.name === "ValidationError") {
-                        err.status = 400;
-                        console.log(err);
-                        return next(err);
-                } else if (err) {
-                        return next(err);
-                }
-        });
+        console.log(req.course.user + ".");
+        console.log(req.user._id + ".");
+        if(req.course.user.toString() === req.user._id.toString()) {
+                req.course.updateOne(req.body, {upsert: true, runValidators: true}, function(err,result){
+                        if (err && err.name === "ValidationError") {
+                                err.status = 400;
+                                console.log(err);
+                                return next(err);
+                        } else if (err) {
+                                return next(err);
+                        } else {
+                                res.send(204);
+                        }
+                });
+        } else {
+                const error = new Error("Changes can only be made by course's user");
+                        error.status = 403;
+                        console.log(error.message);
+                        next(error); 
+        }
 
 });
 
@@ -114,7 +157,15 @@ router.put("/courses/:id", (req, res, next) => {
 
 // DELETE /api/courses/:id 204 - Deletes a course and returns no content
 router.delete("/courses/:id", (req, res, next) => {
-        req.course.remove();
+        if(req.course.user.toString() === req.user._id.toString()) {
+                req.course.remove();
+                res.send(204);
+        } else {
+                const error = new Error("Changes can only be made by course's user");
+                        error.status = 403;
+                        console.log(error.message);
+                        next(error); 
+        }
 
 });
 

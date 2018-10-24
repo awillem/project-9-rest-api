@@ -6,8 +6,10 @@ const morgan = require('morgan');
 const mongoose = require('mongoose');
 const routes = require('./routes');
 const jsonParser = require('body-parser').json;
-const bcrypt = require('bcrypt');
+const User = require('./models').User;
+const Course = require('./models').Course;
 
+const auth = require('basic-auth');
 
 mongoose.connect("mongodb://localhost:27017/fsjstd-restapi");
 const db = mongoose.connection;
@@ -31,6 +33,11 @@ db.on('error', function(err) {
 db.once("open", function() {
   console.log("db connection successful");
 });
+
+
+
+
+
 
 app.use('/api', routes);
 

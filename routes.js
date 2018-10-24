@@ -38,10 +38,6 @@ router.use(function(req, res, next){
                 });
         } else {
                 next();
-                // const error = new Error("Valid sign on required");
-                //                 error.status = 401;
-                //                 console.log(error.message);
-                //                 next(error); 
         }
 });
 
@@ -73,22 +69,35 @@ router.get("/users", (req, res, next) => {
 
 // POST /api/users 201 - Creates a user, sets the Location header to "/", and returns no content
 router.post("/users",  (req, res, next) => {
-        
-
-        if (!validateEmail(req.body.emailAddress)) {
-                const error = new Error("Email not valid");
+        let email = req.body.emailAddress;
+        console.log(email);
+        if(!email){
+                const error = new Error("Email required");
+                        error.status = 400;
                         next(error); 
         } else {
                 User.find({emailAddress: req.body.emailAddress}, function(err,users){
-                        if (users.length !== 0) {
+                        console.log(users.length);
+                        if (users.length !==0) {
                                 const error = new Error("Email already exists");
-                                next(error); ;
+                                error.status = 400;
+                                next(error); 
+                        } else if (!validateEmail(req.body.emailAddress)) {
+                                const error = new Error("Email not valid");
+                                        error.status = 400;
+                                        next(error); 
                         } else {
                                 var user = new User(req.body);
+                                user.validate(function (err, req, res) {
+                                        if (err && err.name === "ValidationError") {
+                                                err.status = 400;
+                                                return next(err);
+                                        } 
+                                });
                                 user.save(function(err, user){
                                         if(err) return next();
                                         res.location('/');                   
-                                        res.sendStatus(201);  
+                                        res.send(201);  
                                 });
                         }
                 });
@@ -121,19 +130,26 @@ router.get("/courses/:id", (req, res, next) => {
 
 // POST /api/courses 201 - Creates a course, sets the Location header to the URI for the course, and returns no content
 router.post("/courses", (req, res, next) => {
-        var course = new Course({...req.body, user: req.user._id});
-     
-        course.validate(function (err, req, res) {
-                if (err && err.name === "ValidationError") {
-                        err.status = 400;
-                        return next(err);
-                } 
-        });
-        course.save(function(err, course){
-                if(err) return next();
-                res.location('/'); 
-                res.send(201);       
-        });
+        console.log(req.user);
+        if(!req.user){
+                const error = new Error("Authorized user must be signed in.");
+                                error.status = 401;
+                                next(error); 
+        } else {
+                var course = new Course({...req.body, user: req.user._id});
+        
+                course.validate(function (err, req, res) {
+                        if (err && err.name === "ValidationError") {
+                                err.status = 400;
+                                return next(err);
+                        } 
+                });
+                course.save(function(err, course){
+                        if(err) return next();
+                        res.location('/'); 
+                        res.send(201);       
+                });
+        }
         
 });
 

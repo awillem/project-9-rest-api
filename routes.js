@@ -9,6 +9,11 @@ const SaltRounds = 10;
 const User = require('./models').User;
 const Course = require('./models').Course;
 
+function validateEmail(email) {
+        var re = /^(([^<>()\[\]\\.,;:\s@"]+(\.[^<>()\[\]\\.,;:\s@"]+)*)|(".+"))@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}])|(([a-zA-Z\-0-9]+\.)+[a-zA-Z]{2,}))$/;
+        return re.test(email);
+}
+
 // Authenticate User
 router.use(function(req, res, next){
         let userNow = auth(req);
@@ -71,12 +76,26 @@ router.get("/users", (req, res, next) => {
 
 // POST /api/users 201 - Creates a user, sets the Location header to "/", and returns no content
 router.post("/users",  (req, res, next) => {
-        var user = new User(req.body);
-        user.save(function(err, user){
-                if(err) return next();
-                res.location('/');                   
-                res.send(201);  
-        });
+        
+
+        if (!validateEmail(req.body.emailAddress)) {
+                const error = new Error("Email not valid");
+                        next(error); 
+        } else {
+                User.find({emailAddress: req.body.emailAddress}, function(err,users){
+                        if (users.length !== 0) {
+                                const error = new Error("Email already exists");
+                                next(error); ;
+                        } else {
+                                var user = new User(req.body);
+                                user.save(function(err, user){
+                                        if(err) return next();
+                                        res.location('/');                   
+                                        res.sendStatus(201);  
+                                });
+                        }
+                });
+        }
 });
 
 

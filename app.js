@@ -27,7 +27,7 @@ app.use(morgan('dev'));
 
 // TODO setup your api routes here
 db.on('error', function(err) {
-  console.error("connection error:", err);
+  console.error("connection error:", err.message);
 });
 
 db.once("open", function() {
@@ -63,7 +63,7 @@ app.use((err, req, res, next) => {
 
   res.status(err.status || 500).json({
     message: err.message,
-    error: {},
+    error: {}
   });
 });
 

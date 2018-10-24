@@ -22,20 +22,17 @@ router.use(function(req, res, next){
                         if(user) {
                                 bcrypt.compare(userNow.pass, user.password, function(err, res){
                                         if(res) {
-                                                console.log('valid password');
                                                 req.user = user;
                                                 next();
                                         } else {
                                                 const error = new Error("Password not valid");
                                                 error.status = 401;
-                                                console.log(error.message);
                                                 next(error);
                                         }
                                 });     
                         }    else {
                                 const error = new Error("User not valid");
                                 error.status = 401;
-                                console.log(error.message);
                                 next(error); 
                         }                
                 });
@@ -102,8 +99,7 @@ router.post("/users",  (req, res, next) => {
 
 // GET /api/courses 200 - Returns a list of courses (including the user that owns each course)
 router.get("/courses", (req, res, next) => {
-        console.log('get courses');
-        Course.find({}).exec(function(err, courses){
+        Course.find({}).populate('user', 'firstName lastName').exec(function(err, courses){
             if(err) return next(err);
                 res.status(200);
                 res.json(courses);
@@ -115,8 +111,7 @@ router.get("/courses", (req, res, next) => {
 
 // GET /api/courses/:id 200 - Returns a the course (including the user that owns the course) for the provided course ID
 router.get("/courses/:id", (req, res, next) => {
-    console.log('get specific course');
-    Course.findById(req.params.id).exec(function(err, courses){
+    Course.findById(req.params.id).populate('user', 'firstName lastName').exec(function(err, courses){
         if(err) return next(err);
             res.json(courses);
     });
@@ -126,14 +121,11 @@ router.get("/courses/:id", (req, res, next) => {
 
 // POST /api/courses 201 - Creates a course, sets the Location header to the URI for the course, and returns no content
 router.post("/courses", (req, res, next) => {
-        console.log(req.user._id);
         var course = new Course({...req.body, user: req.user._id});
      
-        console.log(course);
         course.validate(function (err, req, res) {
                 if (err && err.name === "ValidationError") {
                         err.status = 400;
-                        console.log(err);
                         return next(err);
                 } 
         });
@@ -149,24 +141,20 @@ router.post("/courses", (req, res, next) => {
 
 // PUT /api/courses/:id 204 - Updates a course and returns no content
 router.put("/courses/:id", (req, res, next) => {
-        console.log(req.course.user + ".");
-        console.log(req.user._id + ".");
         if(req.course.user.toString() === req.user._id.toString()) {
                 req.course.updateOne(req.body, {upsert: true, runValidators: true}, function(err,result){
                         if (err && err.name === "ValidationError") {
                                 err.status = 400;
-                                console.log(err);
                                 return next(err);
                         } else if (err) {
                                 return next(err);
                         } else {
-                                res.send(204);
+                                res.sendStatus(204);
                         }
                 });
         } else {
                 const error = new Error("Changes can only be made by course's user");
                         error.status = 403;
-                        console.log(error.message);
                         next(error); 
         }
 
@@ -182,7 +170,6 @@ router.delete("/courses/:id", (req, res, next) => {
         } else {
                 const error = new Error("Changes can only be made by course's user");
                         error.status = 403;
-                        console.log(error.message);
                         next(error); 
         }
 

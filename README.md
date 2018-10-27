@@ -1,7 +1,14 @@
 
 # Full Stack JavaScript Techdegree v2 - REST API Project
 
-## Overview of the Provided Project Files
+## Overview of the Provided Project Files 
+
+User Authorization required for:
+GET /api/users
+POST /api/courses
+PUT /api/courses/:id
+DELETE /api/courses/:id
+
 
 We've supplied the following files for you to use: 
 

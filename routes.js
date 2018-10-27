@@ -16,6 +16,11 @@ function validateEmail(email) {
 
 // Authenticate User
 router.use(function(req, res, next){
+    const url = req.originalUrl;
+    const method = req.method;
+    const urlId = url.slice(13);
+    if ((url === "/api/users" && method === "GET") || (url === "/api/courses" && method === "POST") || (url === `/api/courses/${urlId}` && method === "PUT") || (url === `/api/courses/${urlId}` && method === "DELETE")) {
+    
         let userNow = auth(req);
         if (userNow) {
                 User.findOne({ emailAddress: userNow.name}).exec(function(err, user) {
@@ -37,8 +42,13 @@ router.use(function(req, res, next){
                         }                
                 });
         } else {
-                next();
+            const error = new Error("No User supplied");
+            error.status = 401;
+            next(error);
         }
+    } else {
+        next();
+    }
 });
 
 
@@ -70,14 +80,12 @@ router.get("/users", (req, res, next) => {
 // POST /api/users 201 - Creates a user, sets the Location header to "/", and returns no content
 router.post("/users",  (req, res, next) => {
         let email = req.body.emailAddress;
-        console.log(email);
         if(!email){
                 const error = new Error("Email required");
                         error.status = 400;
                         next(error); 
         } else {
                 User.find({emailAddress: req.body.emailAddress}, function(err,users){
-                        console.log(users.length);
                         if (users.length !==0) {
                                 const error = new Error("Email already exists");
                                 error.status = 400;
@@ -97,7 +105,7 @@ router.post("/users",  (req, res, next) => {
                                 user.save(function(err, user){
                                         if(err) return next();
                                         res.location('/');                   
-                                        res.send(201);  
+                                        res.sendStatus(201);  
                                 });
                         }
                 });
@@ -108,7 +116,7 @@ router.post("/users",  (req, res, next) => {
 
 // GET /api/courses 200 - Returns a list of courses (including the user that owns each course)
 router.get("/courses", (req, res, next) => {
-        Course.find({}).populate('user', 'firstName lastName').exec(function(err, courses){
+        Course.find({}).populate('user', 'firstName lastName').select({"title": 1, "user":1}).exec(function(err, courses){
             if(err) return next(err);
                 res.status(200);
                 res.json(courses);
@@ -130,7 +138,6 @@ router.get("/courses/:id", (req, res, next) => {
 
 // POST /api/courses 201 - Creates a course, sets the Location header to the URI for the course, and returns no content
 router.post("/courses", (req, res, next) => {
-        console.log(req.user);
         if(!req.user){
                 const error = new Error("Authorized user must be signed in.");
                                 error.status = 401;
@@ -147,7 +154,7 @@ router.post("/courses", (req, res, next) => {
                 course.save(function(err, course){
                         if(err) return next();
                         res.location('/'); 
-                        res.send(201);       
+                        res.sendStatus(201);       
                 });
         }
         
@@ -182,7 +189,7 @@ router.put("/courses/:id", (req, res, next) => {
 router.delete("/courses/:id", (req, res, next) => {
         if(req.course.user.toString() === req.user._id.toString()) {
                 req.course.remove();
-                res.send(204);
+                res.sendStatus(204);
         } else {
                 const error = new Error("Changes can only be made by course's user");
                         error.status = 403;
